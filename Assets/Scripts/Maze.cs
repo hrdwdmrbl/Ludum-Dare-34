@@ -11,7 +11,7 @@ public class Maze : MonoBehaviour {
 
     private MazeCell[,] cells;
 
-    public float generationStepDelay;
+    public float generationStepDelay = 0.01f;
 
     public int mazeLength = 30;
 
@@ -25,27 +25,31 @@ public class Maze : MonoBehaviour {
 	
 	}
 
+    private void DoFirstGenerationStep (List<MazeCell> activeCells) {
+        activeCells.Add(CreateCell(RandomCoordinates));
+    }
+
+    private void DoNextGenerationStep (List<MazeCell> activeCells) {
+        int currentIndex = activeCells.Count - 1;
+        MazeCell currentCell = activeCells[currentIndex];
+        MazeDirection direction = MazeDirections.RandomValue;
+        IntVector2 coordinates = currentCell.coordinates + direction.ToIntVector2();
+        if (ContainsCoordinates(coordinates) && GetCell(coordinates) == null) {
+            activeCells.Add(CreateCell(coordinates));
+        } else {
+            activeCells.RemoveAt(currentIndex);
+        }
+    }
+
     public IEnumerator Generate () {
         WaitForSeconds delay = new WaitForSeconds(generationStepDelay);
         cells = new MazeCell[size.x, size.z];
-        IntVector2 coordinates = RandomCoordinates;
-        int cellsPlaced = 0;
-        while (cellsPlaced < mazeLength && ContainsCoordinates(coordinates)) {
+        List<MazeCell> activeCells = new List<MazeCell>();
+        DoFirstGenerationStep(activeCells);
+        while (activeCells.Count > 0) {
+            Debug.Log(activeCells.Count);
             yield return delay;
-            CreateCell(coordinates);
-            IntVector2 proposedCellLocation = coordinates + MazeDirections.RandomValue.ToIntVector2();
-            int maxTries = 8;
-            int tries = 0;
-            while (proposedCellLocation.x >= size.x || proposedCellLocation.z >= size.z || GetCell(proposedCellLocation) != null || ContainsCoordinates(proposedCellLocation) == false) {
-                if (tries > maxTries) {
-                    break;
-                }
-                proposedCellLocation = coordinates + MazeDirections.RandomValue.ToIntVector2();
-                Debug.Log(proposedCellLocation.x + ", " + proposedCellLocation.z);
-                tries++;
-            }
-            coordinates = proposedCellLocation;
-            cellsPlaced ++;
+            DoNextGenerationStep(activeCells);
         }
     }
 
@@ -61,13 +65,14 @@ public class Maze : MonoBehaviour {
         return coordinates.x > 0 && coordinates.x < size.x && coordinates.z > 0 && coordinates.z < size.z;
     }
 
-    private void CreateCell (IntVector2 coordinates) {
+    private MazeCell CreateCell (IntVector2 coordinates) {
         MazeCell newCell = Instantiate(cellPrefab) as MazeCell;
         cells[coordinates.x, coordinates.z] = newCell;
         newCell.coordinates = coordinates;
         newCell.name = "MazeCell X: " + coordinates.x + " Z: " + coordinates.z;
         newCell.transform.parent = transform;
         newCell.transform.localPosition = new Vector3(coordinates.x - size.x * 0.5f + 0.5f, 0f, coordinates.z - size.z * 0.5f + 0.5f);
+        return newCell;
     }
 
     public MazeCell GetCell(IntVector2 coordinates) {
